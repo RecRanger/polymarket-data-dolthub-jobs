@@ -1,0 +1,38 @@
+name: Run Scripts
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+  # Run every 2 days at 12:20 PM UTC.
+  schedule:
+    - cron: "20 12 */2 * *"
+
+env:
+  # Automatically set DRY_RUN=true for pull requests, otherwise false
+  DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+
+jobs:
+  validate-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Sync dependencies
+        run: uv sync --all-groups
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format . --check
+
+      - name: Pyright check
+        run: uv run pyright .
+
+      - name: Pytest
+        run: uv run pytest tests/

@@ -1,0 +1,49 @@
+[project]
+name = "polymarket-data-dolthub-jobs"
+version = "0.1.0"
+description = "DoltHub data jobs to fill a database with select Polymarket market/event data."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "backoff>=2.2.1",
+    "loguru>=0.7.3",
+    "orjson>=3.11.3",
+    "polars>=1.35.2",
+    "pymysql>=1.1.2",
+    "requests>=2.32.5",
+    "sqlalchemy>=2.0.44",
+    "tqdm>=4.67.1",
+    "dataframely>=2.3.1",
+    "arrow>=1.4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.406",
+    "pytest>=8.4.2",
+    "ruff>=0.14.0",
+]
+
+[tool.ruff.lint]
+select = [
+    "ALL"
+]
+ignore = [
+    "COM812",
+    "TD",
+    "FIX",
+    "S101", # Assert
+    "FBT003",
+    "N805", # First argument of a method should be named 'self'. Off for classmethods in Dataframely.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101", # Assert
+    "E501", # Long lines.
+    "D103", # Docstrings.
+]
