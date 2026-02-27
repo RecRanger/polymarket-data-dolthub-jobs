@@ -87,6 +87,7 @@ class BronzeGammaMarketsSchema(dy.Schema):
     neg_risk_other = dy.Bool(nullable=True)
     game_id = dy.String(nullable=True, max_length=255)
     sports_market_type = dy.String(nullable=True, max_length=255)
+    uma_resolution_status = dy.String(nullable=True, max_length=255)
     uma_resolution_statuses = dy.String(nullable=True, max_length=255)
     pending_deployment = dy.Bool(nullable=True)
     deploying = dy.Bool(nullable=True)
@@ -99,6 +100,7 @@ class BronzeGammaMarketsSchema(dy.Schema):
     fee_type = dy.String(nullable=True, max_length=255)
     line = dy.Float64(nullable=True)
     group_item_threshold = dy.String(nullable=True, max_length=255)
+    group_item_range = dy.String(nullable=True, max_length=255)
     maker_base_fee = dy.Int64(nullable=True)
     taker_base_fee = dy.Int64(nullable=True)
     show_gmp_series = dy.Bool(nullable=True)
@@ -127,18 +129,20 @@ class BronzeGammaMarketsSchema(dy.Schema):
     one_week_price_change = dy.Int64(nullable=True)
     one_month_price_change = dy.Int64(nullable=True)
     one_year_price_change = dy.Int64(nullable=True)
+    neg_risk_market_id = dy.String(nullable=True, max_length=255)
+    series_color = dy.String(nullable=True, max_length=255)
 
     @dy.rule(group_by=["slug"])
     def _unique_slug(self) -> pl.Expr:
         return pl.len() == 1
 
 
-def fetch_all_data() -> pl.DataFrame:
+def fetch_all_data() -> list[dict[str, Any]]:
     """Load the full markets list dataset from API and store it to DoltHub."""
     offset: int = 0
     page_size: int = 100
 
-    df_pages: list[pl.DataFrame] = []
+    data: list[dict[str, Any]] = []
 
     while True:
         page_data: list[dict[str, Any]] = url_get_request(
@@ -151,33 +155,20 @@ def fetch_all_data() -> pl.DataFrame:
             OUTPUT_FOLDER_RAW_PAGES / f"markets_page_{offset // page_size}.json"
         ).write_bytes(orjson.dumps(page_data, option=orjson.OPT_INDENT_2))
 
-        # Minor transforms for certain nested fields.
-        page_data_clean = [pydash.omit(row, ["events", "series"]) for row in page_data]
-
-        df = pl.DataFrame(page_data_clean)
-
-        df = df.rename(rename_to_snake_case).rename({"new": "is_new"})
-
-        # Add missing columns.
-        for col, dtype in BronzeGammaMarketsSchema.to_polars_schema().items():
-            if col not in df.columns:
-                df = df.with_columns(pl.lit(None, dtype=dtype).alias(col))
-
-        df = BronzeGammaMarketsSchema.validate(df, cast=True)
-
-        df_pages.append(df)
+        data.extend(page_data)
         offset += page_size
 
         if offset % 1000 == 0:
             logger.debug(
-                f"Fetched page {offset / page_size:.0f} with {offset=}, {df.height=}."
+                f"Fetched page {offset / page_size:.0f} with "
+                f"{offset=}, new_rows={len(page_data)}."
             )
 
-        if df.height < page_size:
+        if len(page_data) < page_size:
             logger.info("Reached the end of the markets list.")
             break
 
-    return pl.concat(df_pages, how="diagonal")
+    return data
 
 
 def rename_to_snake_case(col_name: str) -> str:
@@ -192,15 +183,35 @@ def main() -> None:
     """Load the full markets list dataset from API and store it to DoltHub."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    df = fetch_all_data()
-    logger.info(f"Fetched {df.height} rows of market data: {df.shape}")
+    rows = fetch_all_data()
+    logger.info(f"Fetched {len(rows):,} rows of market data.")
+
+    (OUTPUT_FOLDER / "markets_full.json").write_bytes(
+        orjson.dumps(rows, option=orjson.OPT_INDENT_2)
+    )
+
+    # Minor transform: Remove nested objects.
+    rows_clean = [pydash.omit(row, ["events", "series", "clobRewards"]) for row in rows]
+    del rows
+
+    df = pl.DataFrame(
+        rows_clean,
+        infer_schema_length=None,  # Use all rows.
+    )
+    del rows_clean
+    df = df.rename(rename_to_snake_case).rename({"new": "is_new"})
 
     # Due to paginated fetching, we may have duplicate rows.
     # Deduplicate based on the primary key.
     # Order not too important, but the later fetch is likely slightly more up-to-date.
     df = df.unique(["id"], maintain_order=True, keep="last")
 
-    assert set(df.columns) == set(BronzeGammaMarketsSchema.columns())
+    logger.debug(f"Columns in fetched data: {df.schema}")
+
+    assert set(df.columns) == set(BronzeGammaMarketsSchema.columns()), (
+        f"Extra columns: {set(df.columns) - set(BronzeGammaMarketsSchema.columns())}, "
+        f"missing columns: {set(BronzeGammaMarketsSchema.columns()) - set(df.columns)}"
+    )
     df = BronzeGammaMarketsSchema.validate(df, cast=True)
 
     # Check for any 100%-null columns (potentially remove from schema).
