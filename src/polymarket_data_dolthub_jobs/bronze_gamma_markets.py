@@ -17,9 +17,13 @@ OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 OUTPUT_FOLDER_RAW_PAGES = OUTPUT_FOLDER / "raw_pages"
 OUTPUT_FOLDER_RAW_PAGES.mkdir(parents=True, exist_ok=True)
 
+OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS = (
+    OUTPUT_FOLDER / "bronze_gamma_markets.parquet"
+)
+
 
 class GammaMarketsSchema(dy.Schema):
-    """Schema for the Gamma markets list dataset."""
+    """Schema for the Gamma markets list dataset (`bronze_gamma_markets` table)."""
 
     id = dy.String()
     question = dy.String()
@@ -181,6 +185,8 @@ def rename_to_snake_case(col_name: str) -> str:
 
 def main() -> None:
     """Load the full markets list dataset from API and store it to DoltHub."""
+    logger.info(f"Starting {Path(__file__).stem} step.")
+
     df = fetch_all_data()
     logger.info(f"Fetched {df.height} rows of market data: {df.shape}")
 
@@ -195,7 +201,7 @@ def main() -> None:
             f"from the schema: {null_cols}"
         )
 
-    df.write_parquet(OUTPUT_FOLDER / "markets_list.parquet")
+    df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS)  # Main output.
     df.write_csv(OUTPUT_FOLDER / "markets_list.csv")
 
 
