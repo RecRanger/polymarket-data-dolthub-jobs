@@ -64,7 +64,7 @@ def main() -> None:
                 f"Table {table_name} has VARCHAR columns. Must add length limits."
             )
 
-        # Hack: Replace the very-long "desciption" from VARCHAR to TEXT.
+        # Hack: Replace the very-long "description" from VARCHAR to TEXT.
         create_stmt = create_stmt.replace(
             "description VARCHAR(50000)", "description TEXT"
         )
