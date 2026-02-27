@@ -8,7 +8,7 @@ import polars as pl
 import pydash
 from loguru import logger
 
-from polymarket_data_dolthub_jobs.bronze_gamma_markets import (
+from polymarket_data_dolthub_jobs.step_2a_bronze_gamma_markets import (
     OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS,
 )
 
