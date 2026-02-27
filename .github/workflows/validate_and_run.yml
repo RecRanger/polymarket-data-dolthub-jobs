@@ -52,6 +52,9 @@ jobs:
       - name: Run data pipeline
         run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
 
+      - name: Print working directory
+        run: pwd
+
       - name: Dolt Import
         # https://github.com/dolthub/dolt-action
         uses: RecRanger/dolt-action@main
