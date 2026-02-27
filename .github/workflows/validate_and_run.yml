@@ -59,8 +59,8 @@ jobs:
         with:
           remote: recranger/polymarket-data
           dolthub_credential: ${{ secrets.DOLTHUB_CREDENTIAL }}
-          message: 'Update tables from GitHub Actions workflow'
-          commit_branch: 'main'
+          branch: 'main'
+          commit_message: 'Update tables from GitHub Actions workflow'
           commit_user_email: recranger+dolthub@proton.me
           commit_author: 'RecRanger'
           push: false
