@@ -68,5 +68,5 @@ jobs:
           commit_author: 'RecRanger'
           push: false
           before: |
-            dolt table import -u bronze_gamma_markets ./out/bronze_gamma_markets/bronze_gamma_markets.csv
-            dolt table import -u silver_market_outcomes ./out/silver_market_outcomes/silver_market_outcomes.csv
+            dolt table import -u bronze_gamma_markets /home/runner/work/polymarket-data-dolthub-jobs/polymarket-data-dolthub-jobs/out/bronze_gamma_markets/bronze_gamma_markets.csv
+            dolt table import -u silver_market_outcomes /home/runner/work/polymarket-data-dolthub-jobs/polymarket-data-dolthub-jobs/out/silver_market_outcomes/silver_market_outcomes.csv
