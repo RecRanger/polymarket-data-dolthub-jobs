@@ -8,6 +8,7 @@ import polars as pl
 import pydash
 from loguru import logger
 
+from polymarket_data_dolthub_jobs.path_helpers import write_final_dolt_table
 from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (
     OUTPUT_MARKETS_JSON_FILE,
 )
@@ -188,6 +189,8 @@ def main() -> None:
 
     df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS)
     df.write_csv(OUTPUT_FOLDER / "bronze_gamma_markets.csv")
+
+    write_final_dolt_table(df, "bronze_gamma_markets")
 
     logger.success(f"Finished {Path(__file__).name}: {df.shape}")
 
