@@ -37,19 +37,27 @@ jobs:
       - name: Pytest
         run: uv run pytest tests/
 
-      - name: Run data pipeline
-        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
-
   run-and-update-dolt:
     runs-on: ubuntu-latest
     needs: validate-job
     steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run data pipeline
+        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
+
       - name: Dolt Import
         # https://github.com/dolthub/dolt-action
-        uses: dolthub/dolt-action@v0.16
+        uses: RecRanger/dolt-action@main
         id: 'dolt_import'
         with:
-          remote: max-hoffman/dolt_action_test
+          remote: recranger/polymarket-data
           dolthub_credential: ${{ secrets.DOLTHUB_CREDENTIAL }}
           message: 'Update tables from GitHub Actions workflow'
           commit_branch: 'main'
