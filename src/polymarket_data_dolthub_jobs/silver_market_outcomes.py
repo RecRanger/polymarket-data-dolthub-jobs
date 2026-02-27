@@ -39,6 +39,10 @@ class SilverMarketOutcomesSchema(dy.Schema):
     def _unique_market_id_and_outcome(self) -> pl.Expr:
         return pl.len() == 1
 
+    @dy.rule(group_by=["clob_token_id"])
+    def _unique_clob_token_id(self) -> pl.Expr:
+        return pl.len() == 1
+
 
 def main() -> None:
     """Construct the silver_market_outcomes table from the bronze_gamma_markets table.
