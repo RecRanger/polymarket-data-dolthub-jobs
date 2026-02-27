@@ -12,6 +12,7 @@ on:
 env:
   # Automatically set DRY_RUN=true for pull requests, otherwise false
   DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+  WET_RUN: ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
 
 jobs:
   validate-job:
@@ -52,6 +53,11 @@ jobs:
       - name: Run data pipeline
         run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
 
+      - name: Print working directory
+        run: |
+          echo "PWD: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+
       - name: Dolt Import
         # https://github.com/dolthub/dolt-action
         uses: RecRanger/dolt-action@main
@@ -61,9 +67,10 @@ jobs:
           dolthub_credential: ${{ secrets.DOLTHUB_CREDENTIAL }}
           branch: 'main'
           commit_message: 'Update tables from GitHub Actions workflow'
-          commit_user_email: recranger+dolthub@proton.me
-          commit_author: 'RecRanger'
-          push: false
+          # commit_user_name: RecRanger
+          # commit_user_email: recranger+dolthub@proton.me
+          # commit_author: RecRanger
+          push: ${{ env.WET_RUN }}
           before: |
-            dolt table import -u bronze_gamma_markets ./out/bronze_gamma_markets/bronze_gamma_markets.csv
-            dolt table import -u silver_market_outcomes ./out/silver_market_outcomes/silver_market_outcomes.csv
+            dolt table import -u bronze_gamma_markets $GITHUB_WORKSPACE/out/bronze_gamma_markets/bronze_gamma_markets.csv
+            dolt table import -u silver_market_outcomes $GITHUB_WORKSPACE/out/silver_market_outcomes/silver_market_outcomes.csv
