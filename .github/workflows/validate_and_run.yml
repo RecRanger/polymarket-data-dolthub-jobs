@@ -38,6 +38,13 @@ jobs:
       - name: Pytest
         run: uv run pytest tests/
 
+      - name: Validate SQL schemas
+        run: |
+          uv run src/polymarket_data_dolthub_jobs/generate_sql_schemas.py
+          
+          # Assert that the generated SQL schemas match the committed ones.
+          test -z "$(git status --porcelain)"
+
   run-and-update-dolt:
     runs-on: ubuntu-latest
     needs: validate-job
