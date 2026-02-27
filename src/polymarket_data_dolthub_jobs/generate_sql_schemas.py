@@ -59,6 +59,16 @@ def main() -> None:
         if "PRIMARY KEY" not in create_stmt:
             logger.warning(f"Table {table_name} has no PRIMARY KEY defined.")
 
+        if "VARCHAR," in create_stmt:
+            logger.warning(
+                f"Table {table_name} has VARCHAR columns. Must add length limits."
+            )
+
+        # Hack: Replace the very-long "desciption" from VARCHAR to TEXT.
+        create_stmt = create_stmt.replace(
+            "description VARCHAR(50000)", "description TEXT"
+        )
+
         (schema_output_folder / f"{table_name}.sql").write_text(create_stmt)
 
     logger.success("Done.")

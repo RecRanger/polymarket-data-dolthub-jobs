@@ -5,6 +5,7 @@ from pathlib import Path
 import dataframely as dy
 import orjson
 import polars as pl
+import pydash
 from loguru import logger
 
 from polymarket_data_dolthub_jobs.bronze_gamma_markets import (
@@ -22,13 +23,13 @@ OUTPUT_DATASET_PARQUET_FILE_SILVER_MARKET_OUTCOMES = (
 class SilverMarketOutcomesSchema(dy.Schema):
     """Schema for the `silver_market_outcomes` table."""
 
-    outcome_slug = dy.String(primary_key=True)
-    market_id = dy.String()
-    market_slug = dy.String()
-    question = dy.String()
-    outcome_name = dy.String()
+    outcome_slug = dy.String(primary_key=True, min_length=1, max_length=355)
+    market_id = dy.String(min_length=1, max_length=255)
+    market_slug = dy.String(min_length=1, max_length=255)
+    question = dy.String(min_length=1, max_length=255)
+    outcome_name = dy.String(min_length=1, max_length=100)
     outcome_price = dy.Float64(nullable=True)
-    clob_token_id = dy.String()
+    clob_token_id = dy.String(min_length=1, max_length=255)
 
     @dy.rule(group_by=["market_slug", "outcome_name"])
     def _unique_market_slug_and_outcome(self) -> pl.Expr:
@@ -107,7 +108,11 @@ def main() -> None:
 
     df = df.select(
         # Construct an internal PK for the specific outcome.
-        outcome_slug=pl.concat_str(pl.col("slug"), pl.col("outcome"), separator="-"),
+        outcome_slug=pl.concat_str(
+            pl.col("slug"),
+            pl.col("outcome").map_elements(pydash.kebab_case),
+            separator="@",
+        ),
         market_id=pl.col("id"),
         market_slug=pl.col("slug"),
         question=pl.col("question"),
