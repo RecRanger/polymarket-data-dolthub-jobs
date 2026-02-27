@@ -211,8 +211,8 @@ def main() -> None:
             f"from the schema: {null_cols}"
         )
 
-    df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS)  # Main output.
-    df.write_csv(OUTPUT_FOLDER / "markets_list.csv")
+    df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS)
+    df.write_csv(OUTPUT_FOLDER / "bronze_gamma_markets.csv")
 
     logger.success(f"Finished {Path(__file__).name}: {df.shape}")
 

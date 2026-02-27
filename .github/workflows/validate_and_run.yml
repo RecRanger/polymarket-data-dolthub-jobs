@@ -36,3 +36,25 @@ jobs:
 
       - name: Pytest
         run: uv run pytest tests/
+
+      - name: Run data pipeline
+        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
+
+  run-and-update-dolt:
+    runs-on: ubuntu-latest
+    depends-on: validate-job
+    steps:
+      - name: Dolt Import
+        uses: dolthub/dolt-action@v1.0
+        id: 'dolt_import'
+        with:
+          remote: max-hoffman/dolt_action_test
+          dolthub_credential: ${{ secrets.DOLTHUB_CREDENTIAL }}
+          message: 'Update tables from GitHub Actions workflow'
+          commit_branch: 'main'
+          commit_user_email: recranger+dolthub@proton.me
+          commit_author: 'RecRanger'
+          push: false
+          before: |
+            dolt table import -u bronze_gamma_markets ./out/bronze_gamma_markets/bronze_gamma_markets.csv
+            dolt table import -u silver_market_outcomes ./out/silver_market_outcomes/silver_market_outcomes.csv
