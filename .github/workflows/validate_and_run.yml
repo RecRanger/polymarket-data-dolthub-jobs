@@ -53,7 +53,9 @@ jobs:
         run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
 
       - name: Print working directory
-        run: pwd
+        run: |
+          echo "PWD: $(pwd)"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
 
       - name: Dolt Import
         # https://github.com/dolthub/dolt-action
@@ -68,5 +70,5 @@ jobs:
           commit_author: 'RecRanger'
           push: false
           before: |
-            dolt table import -u bronze_gamma_markets /home/runner/work/polymarket-data-dolthub-jobs/polymarket-data-dolthub-jobs/out/bronze_gamma_markets/bronze_gamma_markets.csv
-            dolt table import -u silver_market_outcomes /home/runner/work/polymarket-data-dolthub-jobs/polymarket-data-dolthub-jobs/out/silver_market_outcomes/silver_market_outcomes.csv
+            dolt table import -u bronze_gamma_markets $GITHUB_WORKSPACE/out/bronze_gamma_markets/bronze_gamma_markets.csv
+            dolt table import -u silver_market_outcomes $GITHUB_WORKSPACE/out/silver_market_outcomes/silver_market_outcomes.csv
