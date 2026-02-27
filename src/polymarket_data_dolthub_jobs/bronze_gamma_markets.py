@@ -22,10 +22,10 @@ OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS = (
 )
 
 
-class GammaMarketsSchema(dy.Schema):
+class BronzeGammaMarketsSchema(dy.Schema):
     """Schema for the Gamma markets list dataset (`bronze_gamma_markets` table)."""
 
-    id = dy.String()
+    id = dy.String(primary_key=True)
     question = dy.String()
     condition_id = dy.String()
     slug = dy.String()
@@ -127,6 +127,10 @@ class GammaMarketsSchema(dy.Schema):
     one_month_price_change = dy.Int64(nullable=True)
     one_year_price_change = dy.Int64(nullable=True)
 
+    @dy.rule(group_by=["slug"])
+    def _unique_slug(self) -> pl.Expr:
+        return pl.len() == 1
+
 
 def fetch_all_data() -> pl.DataFrame:
     """Load the full markets list dataset from API and store it to DoltHub."""
@@ -154,11 +158,11 @@ def fetch_all_data() -> pl.DataFrame:
         df = df.rename(rename_to_snake_case)
 
         # Add missing columns.
-        for col, dtype in GammaMarketsSchema.to_polars_schema().items():
+        for col, dtype in BronzeGammaMarketsSchema.to_polars_schema().items():
             if col not in df.columns:
                 df = df.with_columns(pl.lit(None, dtype=dtype).alias(col))
 
-        df = GammaMarketsSchema.validate(df, cast=True)
+        df = BronzeGammaMarketsSchema.validate(df, cast=True)
 
         df_pages.append(df)
         offset += page_size
@@ -185,13 +189,18 @@ def rename_to_snake_case(col_name: str) -> str:
 
 def main() -> None:
     """Load the full markets list dataset from API and store it to DoltHub."""
-    logger.info(f"Starting {Path(__file__).stem} step.")
+    logger.info(f"Starting {Path(__file__).name}")
 
     df = fetch_all_data()
     logger.info(f"Fetched {df.height} rows of market data: {df.shape}")
 
-    assert set(df.columns) == set(GammaMarketsSchema.columns())
-    df = GammaMarketsSchema.validate(df, cast=True)
+    # Due to paginated fetching, we may have duplicate rows.
+    # Deduplicate based on the primary key.
+    # Order not too important, but the later fetch is likely slightly more up-to-date.
+    df = df.unique(["id"], maintain_order=True, keep="last")
+
+    assert set(df.columns) == set(BronzeGammaMarketsSchema.columns())
+    df = BronzeGammaMarketsSchema.validate(df, cast=True)
 
     # Check for any 100%-null columns (potentially remove from schema).
     null_cols = [col for col in df.columns if df[col].null_count() == df.height]
@@ -203,6 +212,8 @@ def main() -> None:
 
     df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS)  # Main output.
     df.write_csv(OUTPUT_FOLDER / "markets_list.csv")
+
+    logger.success(f"Finished {Path(__file__).name}: {df.shape}")
 
 
 if __name__ == "__main__":

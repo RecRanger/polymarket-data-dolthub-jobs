@@ -19,10 +19,10 @@ OUTPUT_DATASET_PARQUET_FILE_SILVER_MARKET_OUTCOMES = (
 )
 
 
-class GammaSilverMarketOutcomesSchema(dy.Schema):
+class SilverMarketOutcomesSchema(dy.Schema):
     """Schema for the `silver_market_outcomes` table."""
 
-    outcome_slug = dy.String()
+    outcome_slug = dy.String(primary_key=True)
     market_id = dy.String()
     market_slug = dy.String()
     question = dy.String()
@@ -30,13 +30,21 @@ class GammaSilverMarketOutcomesSchema(dy.Schema):
     outcome_price = dy.Float64(nullable=True)
     clob_token_id = dy.String()
 
+    @dy.rule(group_by=["market_slug", "outcome_name"])
+    def _unique_market_slug_and_outcome(self) -> pl.Expr:
+        return pl.len() == 1
+
+    @dy.rule(group_by=["market_id", "outcome_name"])
+    def _unique_market_id_and_outcome(self) -> pl.Expr:
+        return pl.len() == 1
+
 
 def main() -> None:
     """Construct the silver_market_outcomes table from the bronze_gamma_markets table.
 
     Basically explode the outcomes lists.
     """
-    logger.info(f"Starting {Path(__file__).stem} step.")
+    logger.info(f"Starting {Path(__file__).name}")
 
     df = pl.read_parquet(OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS)
     logger.info(f"Loaded markets dataset: {df.shape}")
@@ -108,13 +116,15 @@ def main() -> None:
         clob_token_id=pl.col("clob_token_id"),
     )
 
-    assert set(df.columns) == set(GammaSilverMarketOutcomesSchema.columns())
-    df = GammaSilverMarketOutcomesSchema.validate(df, cast=True)
+    assert set(df.columns) == set(SilverMarketOutcomesSchema.columns())
+    df = SilverMarketOutcomesSchema.validate(df, cast=True)
 
     logger.info(f"Transformed to silver_market_outcomes dataset: {df.shape}")
 
     df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_SILVER_MARKET_OUTCOMES)
     df.write_csv(OUTPUT_FOLDER / "silver_market_outcomes.csv")
+
+    logger.success(f"Finished {Path(__file__).name}: {df.shape}")
 
 
 if __name__ == "__main__":
