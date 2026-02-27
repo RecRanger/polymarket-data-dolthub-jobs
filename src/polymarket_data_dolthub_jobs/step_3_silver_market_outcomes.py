@@ -134,7 +134,7 @@ def main() -> None:
     df.write_parquet(OUTPUT_DATASET_PARQUET_FILE_SILVER_MARKET_OUTCOMES)
     df.write_csv(OUTPUT_FOLDER / "silver_market_outcomes.csv")
 
-    write_final_dolt_table(df, "bronze_gamma_markets")
+    write_final_dolt_table(df, "silver_market_outcomes")
 
     logger.success(f"Finished {Path(__file__).name}: {df.shape}")
 
