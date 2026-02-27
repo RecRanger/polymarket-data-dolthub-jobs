@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Dolt Import
         # https://github.com/dolthub/dolt-action
-        uses: dolthub/dolt-action@v16.0
+        uses: dolthub/dolt-action@v0.16
         id: 'dolt_import'
         with:
           remote: max-hoffman/dolt_action_test
