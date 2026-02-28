@@ -17,9 +17,11 @@ OUTPUT_FOLDER_RAW_PAGES.mkdir(parents=True, exist_ok=True)
 OUTPUT_MARKETS_JSON_FILE = OUTPUT_FOLDER / "markets_full.json"
 OUTPUT_EVENTS_JSON_FILE = OUTPUT_FOLDER / "events_full.json"
 
+GammaEndpointNameLiteral = Literal["events", "markets"]
+
 
 def fetch_all_pages_from_endpoint(
-    endpoint: Literal["events", "markets"],
+    endpoint: GammaEndpointNameLiteral,
 ) -> list[dict[str, Any]]:
     """Load the full events/markets list dataset from API."""
     logger.info(f"Fetching all pages of {endpoint} data from API.")
@@ -60,7 +62,12 @@ def main() -> None:
     """Load the full events/markets list dataset from API (store locally)."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    for endpoint in ("markets", "events"):
+    endpoints_to_fetch: list[GammaEndpointNameLiteral] = [
+        "events",
+        # "markets",  # We don't currently use this dataset.
+    ]
+
+    for endpoint in endpoints_to_fetch:
         rows = fetch_all_pages_from_endpoint(endpoint)
         logger.info(f"Fetched {len(rows):,} rows of {endpoint} data.")
 
