@@ -10,7 +10,7 @@ from loguru import logger
 
 from polymarket_data_dolthub_jobs.path_helpers import write_final_dolt_table
 from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (
-    OUTPUT_MARKETS_JSON_FILE,
+    OUTPUT_EVENTS_JSON_FILE,
 )
 
 OUTPUT_FOLDER = Path("./out/") / Path(__file__).stem
@@ -24,21 +24,24 @@ OUTPUT_DATASET_PARQUET_FILE_BRONZE_GAMMA_MARKETS = (
 class BronzeGammaMarketsSchema(dy.Schema):
     """Schema for the Gamma markets list dataset (`bronze_gamma_markets` table)."""
 
-    id = dy.String(primary_key=True, min_length=1, max_length=255)
+    market_id = dy.String(primary_key=True, min_length=1, max_length=255)
+    market_slug = dy.String(min_length=1, max_length=255)
+    event_id = dy.String(min_length=1, max_length=255)
+    event_slug = dy.String(min_length=1, max_length=255)
     question = dy.String(min_length=1, max_length=255)
-    condition_id = dy.String(min_length=1, max_length=255)
-    slug = dy.String(min_length=1, max_length=255)
+    condition_id = dy.String(min_length=66, max_length=66)  # "0x" + 64 hex bytes
     resolution_source = dy.String(nullable=True, max_length=255)
     end_date = dy.String(nullable=True, max_length=255)
     liquidity = dy.String(nullable=True, max_length=255)
     start_date = dy.String(nullable=True, max_length=255)
-    image = dy.String(nullable=True, max_length=255)
-    icon = dy.String(nullable=True, max_length=255)
+    image = dy.String(nullable=True, max_length=500)
+    icon = dy.String(nullable=True, max_length=500)
     description = dy.String(nullable=True, max_length=50_000)
     outcomes = dy.String(nullable=True, max_length=255)
     outcome_prices = dy.String(nullable=True, max_length=255)
     active = dy.Bool(nullable=True)
     closed = dy.Bool(nullable=True)
+    closed_time = dy.String(nullable=True, max_length=255)
     market_maker_address = dy.String(nullable=True, max_length=255)
     created_at = dy.String(nullable=True, max_length=255)
     updated_at = dy.String(nullable=True, max_length=255)
@@ -81,6 +84,7 @@ class BronzeGammaMarketsSchema(dy.Schema):
     best_bid = dy.Float64(nullable=True)
     best_ask = dy.Float64(nullable=True)
     automatically_active = dy.Bool(nullable=True)
+    automatically_resolved = dy.Bool(nullable=True)
     clear_book_on_start = dy.Bool(nullable=True)
     manual_activation = dy.Bool(nullable=True)
     neg_risk_other = dy.Bool(nullable=True)
@@ -88,6 +92,7 @@ class BronzeGammaMarketsSchema(dy.Schema):
     sports_market_type = dy.String(nullable=True, max_length=255)
     uma_resolution_status = dy.String(nullable=True, max_length=255)
     uma_resolution_statuses = dy.String(nullable=True, max_length=255)
+    uma_end_date = dy.String(nullable=True, max_length=255)
     pending_deployment = dy.Bool(nullable=True)
     deploying = dy.Bool(nullable=True)
     deploying_timestamp = dy.String(nullable=True, max_length=255)
@@ -131,8 +136,12 @@ class BronzeGammaMarketsSchema(dy.Schema):
     neg_risk_market_id = dy.String(nullable=True, max_length=255)
     series_color = dy.String(nullable=True, max_length=255)
 
-    @dy.rule(group_by=["slug"])
-    def _unique_slug(self) -> pl.Expr:
+    @dy.rule(group_by=["market_slug"])
+    def _unique_market_slug(self) -> pl.Expr:
+        return pl.len() == 1
+
+    @dy.rule(group_by=["market_id"])
+    def _unique_market_id(self) -> pl.Expr:
         return pl.len() == 1
 
 
@@ -148,34 +157,51 @@ def main() -> None:
     """Load the full markets list dataset from API and store it to DoltHub."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    rows = orjson.loads(OUTPUT_MARKETS_JSON_FILE.read_bytes())
-    logger.info(f"Fetched {len(rows):,} rows of market data.")
+    events_rows = orjson.loads(OUTPUT_EVENTS_JSON_FILE.read_bytes())
+    logger.info(f"Fetched {len(events_rows):,} rows of events data.")
 
-    (OUTPUT_FOLDER / "markets_full.json").write_bytes(
-        orjson.dumps(rows, option=orjson.OPT_INDENT_2)
-    )
+    markets_rows = [
+        {
+            "event_id": event_row["id"],
+            "event_slug": event_row["slug"],
+            **market_row,
+        }
+        for event_row in events_rows
+        for market_row in event_row["markets"]
+    ]
+    logger.info(f"Exploded to {len(markets_rows):,} rows of markets data.")
+    del events_rows
 
     # Minor transform: Remove nested objects.
-    rows_clean = [pydash.omit(row, ["events", "series", "clobRewards"]) for row in rows]
-    del rows
+    rows_clean = [pydash.omit(row, ["series", "clobRewards"]) for row in markets_rows]
+    del markets_rows
 
     df = pl.DataFrame(
         rows_clean,
         infer_schema_length=None,  # Use all rows.
     )
     del rows_clean
-    df = df.rename(rename_to_snake_case).rename({"new": "is_new"})
+    df = df.rename(rename_to_snake_case).rename(
+        {"id": "market_id", "slug": "market_slug", "new": "is_new"}
+    )
 
     # Due to paginated fetching, we may have duplicate rows.
     # Deduplicate based on the primary key.
     # Order not too important, but the later fetch is likely slightly more up-to-date.
-    df = df.unique(["id"], maintain_order=True, keep="last")
+    df = df.unique(["market_id"], maintain_order=True, keep="last")
+
+    # Filter out any rows with empty string `condition_id`, which indicates a data
+    # issue. It seems that these markets are ones that were deleted or vanished.
+    df = df.filter(pl.col("condition_id") != pl.lit("", dtype=pl.String))
 
     logger.debug(f"Columns in fetched data: {df.schema}")
 
     assert set(df.columns) == set(BronzeGammaMarketsSchema.columns()), (
         f"Extra columns: {set(df.columns) - set(BronzeGammaMarketsSchema.columns())}, "
         f"missing columns: {set(BronzeGammaMarketsSchema.columns()) - set(df.columns)}"
+    )
+    BronzeGammaMarketsSchema.filter(df, cast=True)[1].write_parquet(
+        OUTPUT_FOLDER / "schema_failures.parquet"
     )
     df = BronzeGammaMarketsSchema.validate(df, cast=True)
 
