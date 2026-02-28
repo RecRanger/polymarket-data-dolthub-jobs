@@ -114,12 +114,12 @@ def main() -> None:
     df = df.select(
         # Construct an internal PK for the specific outcome.
         outcome_slug=pl.concat_str(
-            pl.col("slug"),
+            pl.col("market_slug"),
             pl.col("outcome").map_elements(pydash.kebab_case),
             separator="@",
         ),
-        market_id=pl.col("id"),
-        market_slug=pl.col("slug"),
+        market_id=pl.col("market_id"),
+        market_slug=pl.col("market_slug"),
         question=pl.col("question"),
         outcome_name=pl.col("outcome"),
         outcome_price=pl.col("outcome_price"),
