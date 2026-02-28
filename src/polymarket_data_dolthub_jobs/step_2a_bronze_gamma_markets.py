@@ -154,7 +154,7 @@ def rename_to_snake_case(col_name: str) -> str:
 
 
 def main() -> None:
-    """Load the full markets list dataset from API and store it to DoltHub."""
+    """Load the full markets list dataset from API."""
     logger.info(f"Starting {Path(__file__).name}")
 
     events_rows = orjson.loads(OUTPUT_EVENTS_JSON_FILE.read_bytes())
