@@ -24,13 +24,23 @@ OUTPUT_DATASET_PARQUET_FILE_SILVER_MARKET_OUTCOMES = (
 class SilverMarketOutcomesSchema(dy.Schema):
     """Schema for the `silver_market_outcomes` table."""
 
-    outcome_slug = dy.String(primary_key=True, min_length=1, max_length=355)
+    outcome_id = dy.String(primary_key=True, min_length=1, max_length=255)
+    outcome_slug = dy.String(min_length=1, max_length=355)
+    outcome_index = dy.UInt8(is_in=[0, 1])
     market_id = dy.String(min_length=1, max_length=255)
     market_slug = dy.String(min_length=1, max_length=255)
     question = dy.String(min_length=1, max_length=255)
     outcome_name = dy.String(min_length=1, max_length=100)
     outcome_price = dy.Float64(nullable=True)
     clob_token_id = dy.String(min_length=1, max_length=255)
+
+    @dy.rule(group_by=["outcome_id"])
+    def _unique_outcome_id(self) -> pl.Expr:
+        return pl.len() == 1
+
+    @dy.rule(group_by=["outcome_slug"])
+    def _unique_outcome_slug(self) -> pl.Expr:
+        return pl.len() == 1
 
     @dy.rule(group_by=["market_slug", "outcome_name"])
     def _unique_market_slug_and_outcome(self) -> pl.Expr:
@@ -85,6 +95,7 @@ def main() -> None:
             .map_elements(
                 lambda row: [
                     {
+                        "outcome_index": i,
                         "outcome": (row["outcomes"][i] if row["outcomes"] else None),
                         "outcome_price": (
                             row["outcome_prices"][i] if row["outcome_prices"] else None
@@ -98,6 +109,7 @@ def main() -> None:
                 return_dtype=pl.List(
                     pl.Struct(
                         {
+                            "outcome_index": pl.Int64(),
                             "outcome": pl.String(),
                             "outcome_price": pl.Float64(),
                             "clob_token_id": pl.String(),
@@ -112,7 +124,15 @@ def main() -> None:
     )
 
     df = df.select(
-        # Construct an internal PK for the specific outcome.
+        # Construct an internal PK ID for the specific outcome.
+        # Note that slugs change, so we must use the market_id as the stable identifier.
+        outcome_id=pl.concat_str(
+            pl.col("market_id"),
+            pl.col("outcome_index").cast(pl.String),
+            separator="-",
+        ),
+        outcome_index=pl.col("outcome_index").cast(pl.UInt8),
+        # Construct an internal unique ID for the specific outcome.
         outcome_slug=pl.concat_str(
             pl.col("market_slug"),
             pl.col("outcome").map_elements(pydash.kebab_case),
