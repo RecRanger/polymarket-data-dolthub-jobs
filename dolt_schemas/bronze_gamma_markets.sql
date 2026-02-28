@@ -1,20 +1,23 @@
 
 CREATE TABLE bronze_gamma_markets (
-    id VARCHAR(255) NOT NULL, 
+    market_id VARCHAR(255) NOT NULL, 
+    market_slug VARCHAR(255) NOT NULL, 
+    event_id VARCHAR(255) NOT NULL, 
+    event_slug VARCHAR(255) NOT NULL, 
     question VARCHAR(255) NOT NULL, 
-    condition_id VARCHAR(255) NOT NULL, 
-    slug VARCHAR(255) NOT NULL, 
+    condition_id CHAR(66) NOT NULL, 
     resolution_source VARCHAR(255), 
     end_date VARCHAR(255), 
     liquidity VARCHAR(255), 
     start_date VARCHAR(255), 
-    image VARCHAR(255), 
-    icon VARCHAR(255), 
+    image VARCHAR(500), 
+    icon VARCHAR(500), 
     description TEXT, 
     outcomes VARCHAR(255), 
     outcome_prices VARCHAR(255), 
     active BOOLEAN, 
     closed BOOLEAN, 
+    closed_time VARCHAR(255), 
     market_maker_address VARCHAR(255), 
     created_at VARCHAR(255), 
     updated_at VARCHAR(255), 
@@ -56,6 +59,7 @@ CREATE TABLE bronze_gamma_markets (
     best_bid FLOAT, 
     best_ask FLOAT, 
     automatically_active BOOLEAN, 
+    automatically_resolved BOOLEAN, 
     clear_book_on_start BOOLEAN, 
     manual_activation BOOLEAN, 
     neg_risk_other BOOLEAN, 
@@ -63,6 +67,7 @@ CREATE TABLE bronze_gamma_markets (
     sports_market_type VARCHAR(255), 
     uma_resolution_status VARCHAR(255), 
     uma_resolution_statuses VARCHAR(255), 
+    uma_end_date VARCHAR(255), 
     pending_deployment BOOLEAN, 
     deploying BOOLEAN, 
     deploying_timestamp VARCHAR(255), 
@@ -107,6 +112,6 @@ CREATE TABLE bronze_gamma_markets (
     series_color VARCHAR(255), 
     db_created_at DATETIME DEFAULT now() NOT NULL, 
     db_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL, 
-    PRIMARY KEY (id)
+    PRIMARY KEY (market_id)
 )
 
