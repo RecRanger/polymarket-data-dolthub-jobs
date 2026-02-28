@@ -142,6 +142,14 @@ def main() -> None:
 
     logger.debug(f"Columns in fetched data: {df.schema}")
 
+    # Add sometime-missing unimportant columns.
+    # Alternatively, we could drop these columns when they appear (and drop from the
+    # schema).
+    for col in ("liquidity_amm",):
+        if col not in df.columns:
+            logger.info(f'"{col}" column not in source. Adding it with null values.')
+            df = df.with_columns(pl.lit(None).alias(col))
+
     assert set(df.columns) == set(BronzeGammaEventsSchema.columns()), (
         f"Extra columns: {set(df.columns) - set(BronzeGammaEventsSchema.columns())}, "
         f"missing columns: {set(BronzeGammaEventsSchema.columns()) - set(df.columns)}"
