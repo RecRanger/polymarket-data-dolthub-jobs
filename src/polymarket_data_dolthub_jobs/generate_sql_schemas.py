@@ -3,9 +3,10 @@
 from pathlib import Path
 from typing import Any
 
-import sqlalchemy
-import sqlalchemy.dialects.mysql.base
+import polars as pl
+import sqlalchemy as sa
 from loguru import logger
+from sqlalchemy.dialects.mysql.base import MySQLDialect
 
 from polymarket_data_dolthub_jobs.tables import TABLES_TO_SCHEMAS
 
@@ -18,28 +19,46 @@ def main() -> None:
 
     for table_name, schema_class in TABLES_TO_SCHEMAS.items():
         logger.info(f"Generating SQL schema for {table_name}")
-        sqlalchemy_columns: list[Any] = schema_class.to_sqlalchemy_columns(  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
-            dialect=sqlalchemy.dialects.mysql.base.MySQLDialect()
+        sqlalchemy_columns: list[sa.Column[Any]] = schema_class.to_sqlalchemy_columns(  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+            dialect=MySQLDialect()
         )
 
+        # Transform any enum columns.
+        for i in range(len(sqlalchemy_columns)):
+            column_name, polars_type = list(schema_class.to_polars_schema().items())[i]
+            if isinstance(polars_type, pl.Enum):
+                assert isinstance(sqlalchemy_columns[i].type, sa.String)
+                logger.debug(f"Transforming enum column {column_name}")
+
+                sqlalchemy_columns[i] = sa.Column(
+                    sqlalchemy_columns[i].name,
+                    sa.Enum(
+                        *polars_type.categories.to_list(),
+                        native_enum=True,
+                        # Disable - create_constraint=True,
+                    ),
+                    primary_key=sqlalchemy_columns[i].primary_key,
+                    nullable=sqlalchemy_columns[i].nullable,
+                )
+
         # Create a MetaData instance.
-        metadata = sqlalchemy.MetaData()
+        metadata = sa.MetaData()
 
         # Add automatic added and updated columns.
         sqlalchemy_columns.extend(
             [
-                sqlalchemy.Column(
+                sa.Column(
                     "db_created_at",
-                    sqlalchemy.DateTime,
+                    sa.DateTime,
                     nullable=False,
                     # Set when the row is first inserted:
-                    server_default=sqlalchemy.func.now(),
+                    server_default=sa.func.now(),
                 ),
-                sqlalchemy.Column(
+                sa.Column(
                     "db_updated_at",
-                    sqlalchemy.DateTime,
+                    sa.DateTime,
                     nullable=False,
-                    server_default=sqlalchemy.text(
+                    server_default=sa.text(
                         "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
                     ),
                 ),
@@ -47,13 +66,13 @@ def main() -> None:
         )
 
         # Dynamically create a Table from the list of columns.
-        my_table = sqlalchemy.Table(table_name, metadata, *sqlalchemy_columns)
+        my_table = sa.Table(table_name, metadata, *sqlalchemy_columns)
 
         # Generate the CREATE TABLE statement.
         create_stmt = str(
-            sqlalchemy.schema.CreateTable(my_table).compile(
+            sa.schema.CreateTable(my_table).compile(
                 compile_kwargs={"literal_binds": True},
-                dialect=sqlalchemy.dialects.mysql.base.MySQLDialect(),
+                dialect=MySQLDialect(),
             )
         ).replace("\t", " " * 4)
 
