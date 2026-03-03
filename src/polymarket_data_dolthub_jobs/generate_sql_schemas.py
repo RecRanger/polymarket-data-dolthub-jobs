@@ -52,7 +52,8 @@ def main() -> None:
         # Generate the CREATE TABLE statement.
         create_stmt = str(
             sqlalchemy.schema.CreateTable(my_table).compile(
-                compile_kwargs={"literal_binds": True}
+                compile_kwargs={"literal_binds": True},
+                dialect=sqlalchemy.dialects.mysql.base.MySQLDialect(),
             )
         ).replace("\t", " " * 4)
 

@@ -9,8 +9,8 @@ CREATE TABLE silver_market_outcomes (
     outcome_name VARCHAR(100) NOT NULL, 
     outcome_price FLOAT, 
     clob_token_id VARCHAR(255) NOT NULL, 
-    db_created_at DATETIME DEFAULT now() NOT NULL, 
-    db_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL, 
+    db_created_at DATETIME NOT NULL DEFAULT now(), 
+    db_updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, 
     PRIMARY KEY (outcome_id)
 )
 
