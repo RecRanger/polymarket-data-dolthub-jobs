@@ -24,24 +24,21 @@ def main() -> None:
         )
 
         # Transform any enum columns.
-        for i, ((column_name, polars_type), sqlalchemy_column) in enumerate(
-            zip(
-                schema_class.to_polars_schema().items(), sqlalchemy_columns, strict=True
-            )
-        ):
+        for i in range(len(sqlalchemy_columns)):
+            column_name, polars_type = list(schema_class.to_polars_schema().items())[i]
             if isinstance(polars_type, pl.Enum):
-                assert isinstance(sqlalchemy_column.type, sa.String)
-
+                assert isinstance(sqlalchemy_columns[i].type, sa.String)
                 logger.debug(f"Transforming enum column {column_name}")
+
                 sqlalchemy_columns[i] = sa.Column(
-                    sqlalchemy_column.name,
+                    sqlalchemy_columns[i].name,
                     sa.Enum(
                         *polars_type.categories.to_list(),
                         native_enum=True,
                         # Disable - create_constraint=True,
                     ),
-                    primary_key=sqlalchemy_column.primary_key,
-                    nullable=sqlalchemy_column.nullable,
+                    primary_key=sqlalchemy_columns[i].primary_key,
+                    nullable=sqlalchemy_columns[i].nullable,
                 )
 
         # Create a MetaData instance.
