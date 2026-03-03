@@ -1,6 +1,7 @@
 """Schema for the `entry_outcome_dependencies` table."""
 
 import dataframely as dy
+import polars as pl
 
 
 class EntryOutcomeDependenciesSchema(dy.Schema):
@@ -23,6 +24,16 @@ class EntryOutcomeDependenciesSchema(dy.Schema):
         ]
     )
     comments = dy.String(nullable=True, max_length=500)
+
+    @dy.rule(group_by=["outcome_id_a", "outcome_id_b"])
+    def _unique_outcome_pair(cls) -> pl.Expr:
+        """Ensure unique outcome pairs."""
+        return pl.len() == 1
+
+    @dy.rule()
+    def _outcome_a_and_b_are_distinct(cls) -> pl.Expr:
+        """Ensure outcome A and B are distinct/different from each other."""
+        return pl.col("outcome_id_a") != pl.col("outcome_id_b")
 
 
 # | Type               | Price Condition            | Action                         |
