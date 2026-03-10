@@ -1,9 +1,12 @@
 """Run all steps in the processing pipeline."""
 
+from typing import Literal
+
+import fire  # pyright: ignore[reportMissingTypeStubs]
 from loguru import logger
 
 
-def main() -> None:
+def main(run_mode: Literal["full", "active_only"]) -> None:
     """Run all steps in the processing pipeline."""
     logger.info("Starting the data processing pipeline.")
     from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (  # noqa: PLC0415
@@ -19,7 +22,7 @@ def main() -> None:
         main as step_3_silver_market_outcomes_main,
     )
 
-    step_1_download_raw_gamma_main()
+    step_1_download_raw_gamma_main(run_mode=run_mode)
     step_2a_bronze_gamma_markets_main()
     step_2b_bronze_gamma_events_main()
     step_3_silver_market_outcomes_main()
@@ -28,4 +31,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    fire.Fire(main)  # pyright: ignore[reportUnknownMemberType]

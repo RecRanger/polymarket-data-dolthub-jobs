@@ -13,6 +13,7 @@ env:
   # Automatically set DRY_RUN=true for pull requests, otherwise false
   DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
   WET_RUN: ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
+  RUN_MODE: ${{ github.event_name == 'pull_request' && 'active_only' || 'full' }}
 
 jobs:
   validate-job:
@@ -58,7 +59,7 @@ jobs:
         run: uv sync
 
       - name: Run data pipeline
-        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
+        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py --run-mode ${{ env.RUN_MODE }}
 
       - name: Print working directory
         run: |

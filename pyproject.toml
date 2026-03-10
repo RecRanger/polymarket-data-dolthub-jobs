@@ -18,6 +18,7 @@ dependencies = [
     "py-clob-client>=0.34.6", # Polymarket client.
     "pydash>=8.0.6",
     "cloudpickle>=3.1.2", # Optional dependency of dataframely.
+    "fire>=0.7.1",
 ]
 
 [build-system]
