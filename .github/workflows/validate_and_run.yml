@@ -13,6 +13,7 @@ env:
   # Automatically set DRY_RUN=true for pull requests, otherwise false
   DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
   WET_RUN: ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
+  RUN_MODE: ${{ github.event_name == 'pull_request' && 'active_only' || 'full' }}
 
 jobs:
   validate-job:
@@ -58,7 +59,7 @@ jobs:
         run: uv sync
 
       - name: Run data pipeline
-        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py
+        run: uv run src/polymarket_data_dolthub_jobs/pipeline.py --run-mode ${{ env.RUN_MODE }}
 
       - name: Print working directory
         run: |
@@ -80,6 +81,9 @@ jobs:
           push: ${{ env.WET_RUN }}
           before: |
             dolt version
+            echo
             dolt table import -u bronze_gamma_events    $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_events.parquet
+            echo
             dolt table import -u bronze_gamma_markets   $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_markets.parquet
+            echo
             dolt table import -u silver_market_outcomes $GITHUB_WORKSPACE/out/dolt_tables/silver_market_outcomes.parquet

@@ -2,8 +2,9 @@
 
 import itertools
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, assert_never
 
+import fire  # pyright: ignore[reportMissingTypeStubs]
 import orjson
 from loguru import logger
 
@@ -37,6 +38,7 @@ def fetch_all_pages_from_endpoint(
     data: list[dict[str, Any]] = []
 
     while True:
+        # API Docs: https://docs.polymarket.com/api-reference/events/list-events
         page_data: list[dict[str, Any]] = url_get_request(
             f"https://gamma-api.polymarket.com/{endpoint}?active={str(active).lower()}&closed={str(closed).lower()}&limit={page_size}&offset={offset}&start_date_min=2025-01-01"
         )
@@ -70,8 +72,14 @@ def fetch_all_pages_from_endpoint(
     return data
 
 
-def main() -> None:
-    """Load the full events/markets list dataset from API (store locally)."""
+def main(run_mode: Literal["full", "active_only"]) -> None:
+    """Load the full events/markets list dataset from API (store locally).
+
+    Args:
+        run_mode: "full" to fetch all combinations of active/closed.
+                    "active_only" to only fetch active=true closed=false.
+
+    """
     logger.info(f"Starting {Path(__file__).name}")
 
     endpoints_to_fetch: list[GammaEndpointNameLiteral] = [
@@ -79,9 +87,24 @@ def main() -> None:
         # "markets",  # We don't currently use this dataset.
     ]
 
+    if run_mode == "active_only":
+        active_closed_combinations = [(True, False)]
+        logger.info(
+            "Running in active_only mode: only fetching active=true closed=false data."
+        )
+    elif run_mode == "full":
+        active_closed_combinations = list(
+            itertools.product([True, False], [True, False])
+        )
+        logger.info(
+            "Running in full mode: fetching all combinations of active/closed data."
+        )
+    else:
+        assert_never(run_mode)
+
     for endpoint in endpoints_to_fetch:
         rows: list[dict[str, Any]] = []
-        for active, closed in itertools.product([True, False], [True, False]):
+        for active, closed in active_closed_combinations:
             logger.info(
                 f"Fetching {endpoint} data with active={active} closed={closed}."
             )
@@ -108,4 +131,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    fire.Fire(main)  # pyright: ignore[reportUnknownMemberType]
