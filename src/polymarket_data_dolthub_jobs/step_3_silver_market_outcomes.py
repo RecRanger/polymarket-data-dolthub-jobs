@@ -30,7 +30,7 @@ class SilverMarketOutcomesSchema(dy.Schema):
     market_id = dy.String(min_length=1, max_length=255)
     market_slug = dy.String(min_length=1, max_length=255)
     question = dy.String(min_length=1, max_length=255)
-    outcome_name = dy.String(min_length=1, max_length=100)
+    outcome_name = dy.String(max_length=100)  # Must not have a min length.
     outcome_price = dy.Float64(nullable=True)
     clob_token_id = dy.String(min_length=1, max_length=255)
 
@@ -38,17 +38,11 @@ class SilverMarketOutcomesSchema(dy.Schema):
     def _unique_outcome_id(self) -> pl.Expr:
         return pl.len() == 1
 
-    @dy.rule(group_by=["outcome_slug"])
-    def _unique_outcome_slug(self) -> pl.Expr:
-        return pl.len() == 1
-
-    @dy.rule(group_by=["market_slug", "outcome_name"])
-    def _unique_market_slug_and_outcome(self) -> pl.Expr:
-        return pl.len() == 1
-
-    @dy.rule(group_by=["market_id", "outcome_name"])
-    def _unique_market_id_and_outcome(self) -> pl.Expr:
-        return pl.len() == 1
+    # Outcome names can surprisingly be duplicated within a market.
+    # Example: Ymer vs. Ymer - https://polymarket.com/sports/atp/atp-ymer-ymer4-2025-10-13
+    # Not unique on - @dy.rule(group_by=["market_slug", "outcome_name"])
+    # Not unique on - @dy.rule(group_by=["market_id", "outcome_name"])
+    # Not unique on - @dy.rule(group_by=["outcome_slug"])
 
     @dy.rule(group_by=["clob_token_id"])
     def _unique_clob_token_id(self) -> pl.Expr:
@@ -87,6 +81,10 @@ def main() -> None:
             f"Found {df_long_outcomes_issue.height} rows with more than 2 outcomes. "
             "Outcomes past the 2nd one will be truncated."
         )
+    del df_long_outcomes_issue
+
+    # Remove old markets with missing clob_token_ids (upstream data issue).
+    df = df.filter(pl.col("clob_token_ids").list.len() == pl.lit(2))
 
     # Convert to structs to explode.
     df = (
@@ -147,6 +145,9 @@ def main() -> None:
     )
 
     assert set(df.columns) == set(SilverMarketOutcomesSchema.columns())
+    SilverMarketOutcomesSchema.filter(df, cast=True)[1].write_parquet(
+        OUTPUT_FOLDER / "schema_failures.parquet"
+    )
     df = SilverMarketOutcomesSchema.validate(df, cast=True)
 
     logger.info(f"Transformed to silver_market_outcomes dataset: {df.shape}")
