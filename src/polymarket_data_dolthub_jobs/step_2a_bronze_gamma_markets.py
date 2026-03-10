@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import dataframely as dy
+import orjson
 import polars as pl
 import pydash
 from loguru import logger
@@ -143,6 +144,13 @@ class BronzeGammaMarketsSchema(dy.Schema):
     def _unique_market_id(self) -> pl.Expr:
         return pl.len() == 1
 
+    @dy.rule()
+    def _clob_token_ids_format(self) -> pl.Expr:
+        return pl.col("clob_token_ids").map_elements(
+            lambda x: len(orjson.loads(x)) == 2,  # noqa: PLR2004
+            return_dtype=pl.Boolean,
+        )
+
 
 def rename_to_snake_case(col_name: str) -> str:
     """Convert a camelCase column name to snake_case.
@@ -182,6 +190,26 @@ def main() -> None:
     # Filter out any rows with empty string `condition_id`, which indicates a data
     # issue. It seems that these markets are ones that were deleted or vanished.
     df = df.filter(pl.col("condition_id") != pl.lit("", dtype=pl.String))
+
+    # Filter out old cases with more than 2 outcomes. Only binary markets are supported.
+    df = df.filter(
+        pl.col("outcomes").map_elements(
+            lambda x: len(orjson.loads(x)) == 2,  # noqa: PLR2004
+            return_dtype=pl.Boolean,
+        )
+        # Keep recent markets so they fail the validation later. Used in case they
+        # start using 3+ outcome markets again.
+        | (pl.col("start_date").str.extract(r"^(\d{4})").cast(pl.UInt16) > pl.lit(2023))
+    )
+
+    # Nullify any long image/icon URLs.
+    df = df.with_columns(
+        pl.when(pl.col(col_name).str.len_bytes() > pl.lit(500))
+        .then(pl.lit(None))
+        .otherwise(pl.col(col_name))
+        .alias(col_name)
+        for col_name in ["image", "icon"]
+    )
 
     logger.debug(f"Columns in fetched data: {df.schema}")
 
