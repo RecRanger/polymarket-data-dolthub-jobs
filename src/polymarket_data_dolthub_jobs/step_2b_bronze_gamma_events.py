@@ -129,6 +129,15 @@ def main() -> None:
 
     logger.debug(f"Columns in fetched data: {df.schema}")
 
+    # Nullify any long image/icon URLs.
+    df = df.with_columns(
+        pl.when(pl.col(col_name).str.len_bytes() > pl.lit(500))
+        .then(pl.lit(None))
+        .otherwise(pl.col(col_name))
+        .alias(col_name)
+        for col_name in ["image", "icon"]
+    )
+
     # Add sometime-missing unimportant columns.
     # Alternatively, we could drop these columns when they appear (and drop from the
     # schema).
