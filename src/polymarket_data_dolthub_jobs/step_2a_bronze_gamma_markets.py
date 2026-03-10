@@ -185,6 +185,15 @@ def main() -> None:
 
     logger.debug(f"Columns in fetched data: {df.schema}")
 
+    # Drop any extra columns.
+    drop_columns = sorted(set(df.columns) - set(BronzeGammaMarketsSchema.columns()))
+    if drop_columns:
+        logger.warning(
+            f"Dropping {len(drop_columns)} extra columns that are not in the schema: "
+            f"{drop_columns}"
+        )
+        df = df.drop(drop_columns)
+
     assert set(df.columns) == set(BronzeGammaMarketsSchema.columns()), (
         f"Extra columns: {set(df.columns) - set(BronzeGammaMarketsSchema.columns())}, "
         f"missing columns: {set(BronzeGammaMarketsSchema.columns()) - set(df.columns)}"

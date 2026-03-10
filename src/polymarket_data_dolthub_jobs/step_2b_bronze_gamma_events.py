@@ -137,6 +137,15 @@ def main() -> None:
             logger.info(f'"{col}" column not in source. Adding it with null values.')
             df = df.with_columns(pl.lit(None).alias(col))
 
+    # Drop any extra columns.
+    drop_columns = sorted(set(df.columns) - set(BronzeGammaEventsSchema.columns()))
+    if drop_columns:
+        logger.warning(
+            f"Dropping {len(drop_columns)} extra columns that are not in the schema: "
+            f"{drop_columns}"
+        )
+        df = df.drop(drop_columns)
+
     assert set(df.columns) == set(BronzeGammaEventsSchema.columns()), (
         f"Extra columns: {set(df.columns) - set(BronzeGammaEventsSchema.columns())}, "
         f"missing columns: {set(BronzeGammaEventsSchema.columns()) - set(df.columns)}"
