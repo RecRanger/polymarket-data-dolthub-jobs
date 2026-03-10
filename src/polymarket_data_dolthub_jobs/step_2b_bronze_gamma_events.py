@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import dataframely as dy
-import orjson
 import polars as pl
 import pydash
 from loguru import logger
@@ -114,23 +113,11 @@ def main() -> None:
     """Load the full events list dataset from API."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    events_rows = orjson.loads(OUTPUT_EVENTS_JSON_FILE.read_bytes())
-    logger.info(f"Fetched {len(events_rows):,} rows of events data.")
+    df = pl.read_json(OUTPUT_EVENTS_JSON_FILE, infer_schema_length=None)
+    logger.info(f"Read JSON: {df.shape}")
 
-    # Minor transform: Remove nested objects.
-    rows_clean = [
-        pydash.omit(
-            row, ["markets", "tags", "series", "eventCreators", "eventMetadata"]
-        )
-        for row in events_rows
-    ]
-    del events_rows
+    df = df.drop("markets", "tags", "series", "eventCreators", "eventMetadata")
 
-    df = pl.DataFrame(
-        rows_clean,
-        infer_schema_length=None,  # Use all rows.
-    )
-    del rows_clean
     df = df.rename(rename_to_snake_case).rename(
         {"id": "event_id", "slug": "event_slug", "new": "is_new"}
     )

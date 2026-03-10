@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import dataframely as dy
-import orjson
 import polars as pl
 import pydash
 from loguru import logger
@@ -157,30 +156,20 @@ def main() -> None:
     """Load the full markets list dataset from API."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    events_rows = orjson.loads(OUTPUT_EVENTS_JSON_FILE.read_bytes())
-    logger.info(f"Fetched {len(events_rows):,} rows of events data.")
+    df = pl.read_json(OUTPUT_EVENTS_JSON_FILE, infer_schema_length=None)
+    logger.info(f"Read JSON: {df.shape}")
 
-    markets_rows = [
-        {
-            "event_id": event_row["id"],
-            "event_slug": event_row["slug"],
-            **market_row,
-        }
-        for event_row in events_rows
-        for market_row in event_row["markets"]
-    ]
-    logger.info(f"Exploded to {len(markets_rows):,} rows of markets data.")
-    del events_rows
-
-    # Minor transform: Remove nested objects.
-    rows_clean = [pydash.omit(row, ["series", "clobRewards"]) for row in markets_rows]
-    del markets_rows
-
-    df = pl.DataFrame(
-        rows_clean,
-        infer_schema_length=None,  # Use all rows.
+    df = (
+        df.select(
+            event_id=pl.col("id"),
+            event_slug=pl.col("slug"),
+            markets=pl.col("markets"),  # List-of-structs column.
+        )
+        .explode("markets")
+        .unnest("markets")
+        .drop("clobRewards")
     )
-    del rows_clean
+
     df = df.rename(rename_to_snake_case).rename(
         {"id": "market_id", "slug": "market_slug", "new": "is_new"}
     )
