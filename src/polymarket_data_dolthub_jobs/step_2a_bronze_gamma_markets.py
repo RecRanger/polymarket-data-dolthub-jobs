@@ -144,6 +144,13 @@ class BronzeGammaMarketsSchema(dy.Schema):
     def _unique_market_id(self) -> pl.Expr:
         return pl.len() == 1
 
+    @dy.rule()
+    def _clob_token_ids_format(self) -> pl.Expr:
+        return pl.col("clob_token_ids").map_elements(
+            lambda x: len(orjson.loads(x)) == 2,  # noqa: PLR2004
+            return_dtype=pl.Boolean,
+        )
+
 
 def rename_to_snake_case(col_name: str) -> str:
     """Convert a camelCase column name to snake_case.
@@ -157,30 +164,20 @@ def main() -> None:
     """Load the full markets list dataset from API."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    events_rows = orjson.loads(OUTPUT_EVENTS_JSON_FILE.read_bytes())
-    logger.info(f"Fetched {len(events_rows):,} rows of events data.")
+    df = pl.read_json(OUTPUT_EVENTS_JSON_FILE, infer_schema_length=None)
+    logger.info(f"Read JSON: {df.shape}")
 
-    markets_rows = [
-        {
-            "event_id": event_row["id"],
-            "event_slug": event_row["slug"],
-            **market_row,
-        }
-        for event_row in events_rows
-        for market_row in event_row["markets"]
-    ]
-    logger.info(f"Exploded to {len(markets_rows):,} rows of markets data.")
-    del events_rows
-
-    # Minor transform: Remove nested objects.
-    rows_clean = [pydash.omit(row, ["series", "clobRewards"]) for row in markets_rows]
-    del markets_rows
-
-    df = pl.DataFrame(
-        rows_clean,
-        infer_schema_length=None,  # Use all rows.
+    df = (
+        df.select(
+            event_id=pl.col("id"),
+            event_slug=pl.col("slug"),
+            markets=pl.col("markets"),  # List-of-structs column.
+        )
+        .explode("markets")
+        .unnest("markets")
+        .drop("clobRewards")
     )
-    del rows_clean
+
     df = df.rename(rename_to_snake_case).rename(
         {"id": "market_id", "slug": "market_slug", "new": "is_new"}
     )
@@ -194,7 +191,36 @@ def main() -> None:
     # issue. It seems that these markets are ones that were deleted or vanished.
     df = df.filter(pl.col("condition_id") != pl.lit("", dtype=pl.String))
 
+    # Filter out old cases with more than 2 outcomes. Only binary markets are supported.
+    df = df.filter(
+        pl.col("outcomes").map_elements(
+            lambda x: len(orjson.loads(x)) == 2,  # noqa: PLR2004
+            return_dtype=pl.Boolean,
+        )
+        # Keep recent markets so they fail the validation later. Used in case they
+        # start using 3+ outcome markets again.
+        | (pl.col("start_date").str.extract(r"^(\d{4})").cast(pl.UInt16) > pl.lit(2023))
+    )
+
+    # Nullify any long image/icon URLs.
+    df = df.with_columns(
+        pl.when(pl.col(col_name).str.len_bytes() > pl.lit(500))
+        .then(pl.lit(None))
+        .otherwise(pl.col(col_name))
+        .alias(col_name)
+        for col_name in ["image", "icon"]
+    )
+
     logger.debug(f"Columns in fetched data: {df.schema}")
+
+    # Drop any extra columns.
+    drop_columns = sorted(set(df.columns) - set(BronzeGammaMarketsSchema.columns()))
+    if drop_columns:
+        logger.warning(
+            f"Dropping {len(drop_columns)} extra columns that are not in the schema: "
+            f"{drop_columns}"
+        )
+        df = df.drop(drop_columns)
 
     assert set(df.columns) == set(BronzeGammaMarketsSchema.columns()), (
         f"Extra columns: {set(df.columns) - set(BronzeGammaMarketsSchema.columns())}, "

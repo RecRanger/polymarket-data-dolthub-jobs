@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import dataframely as dy
-import orjson
 import polars as pl
 import pydash
 from loguru import logger
@@ -114,23 +113,11 @@ def main() -> None:
     """Load the full events list dataset from API."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    events_rows = orjson.loads(OUTPUT_EVENTS_JSON_FILE.read_bytes())
-    logger.info(f"Fetched {len(events_rows):,} rows of events data.")
+    df = pl.read_json(OUTPUT_EVENTS_JSON_FILE, infer_schema_length=None)
+    logger.info(f"Read JSON: {df.shape}")
 
-    # Minor transform: Remove nested objects.
-    rows_clean = [
-        pydash.omit(
-            row, ["markets", "tags", "series", "eventCreators", "eventMetadata"]
-        )
-        for row in events_rows
-    ]
-    del events_rows
+    df = df.drop("markets", "tags", "series", "eventCreators", "eventMetadata")
 
-    df = pl.DataFrame(
-        rows_clean,
-        infer_schema_length=None,  # Use all rows.
-    )
-    del rows_clean
     df = df.rename(rename_to_snake_case).rename(
         {"id": "event_id", "slug": "event_slug", "new": "is_new"}
     )
@@ -142,6 +129,15 @@ def main() -> None:
 
     logger.debug(f"Columns in fetched data: {df.schema}")
 
+    # Nullify any long image/icon URLs.
+    df = df.with_columns(
+        pl.when(pl.col(col_name).str.len_bytes() > pl.lit(500))
+        .then(pl.lit(None))
+        .otherwise(pl.col(col_name))
+        .alias(col_name)
+        for col_name in ["image", "icon"]
+    )
+
     # Add sometime-missing unimportant columns.
     # Alternatively, we could drop these columns when they appear (and drop from the
     # schema).
@@ -149,6 +145,15 @@ def main() -> None:
         if col not in df.columns:
             logger.info(f'"{col}" column not in source. Adding it with null values.')
             df = df.with_columns(pl.lit(None).alias(col))
+
+    # Drop any extra columns.
+    drop_columns = sorted(set(df.columns) - set(BronzeGammaEventsSchema.columns()))
+    if drop_columns:
+        logger.warning(
+            f"Dropping {len(drop_columns)} extra columns that are not in the schema: "
+            f"{drop_columns}"
+        )
+        df = df.drop(drop_columns)
 
     assert set(df.columns) == set(BronzeGammaEventsSchema.columns()), (
         f"Extra columns: {set(df.columns) - set(BronzeGammaEventsSchema.columns())}, "
