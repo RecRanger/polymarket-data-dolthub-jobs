@@ -38,7 +38,7 @@ def fetch_all_pages_from_endpoint(
 
     while True:
         page_data: list[dict[str, Any]] = url_get_request(
-            f"https://gamma-api.polymarket.com/{endpoint}?active={str(active).lower()}&closed={str(closed).lower()}&limit={page_size}&offset={offset}"
+            f"https://gamma-api.polymarket.com/{endpoint}?active={str(active).lower()}&closed={str(closed).lower()}&limit={page_size}&offset={offset}&start_date_min=2025-01-01"
         )
         assert isinstance(page_data, list)
         assert all(isinstance(market, dict) for market in page_data)
