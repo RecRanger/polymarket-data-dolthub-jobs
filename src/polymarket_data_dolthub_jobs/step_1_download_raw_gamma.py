@@ -38,6 +38,7 @@ def fetch_all_pages_from_endpoint(
     data: list[dict[str, Any]] = []
 
     while True:
+        # API Docs: https://docs.polymarket.com/api-reference/events/list-events
         page_data: list[dict[str, Any]] = url_get_request(
             f"https://gamma-api.polymarket.com/{endpoint}?active={str(active).lower()}&closed={str(closed).lower()}&limit={page_size}&offset={offset}&start_date_min=2025-01-01"
         )

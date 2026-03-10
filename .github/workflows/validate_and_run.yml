@@ -81,6 +81,9 @@ jobs:
           push: ${{ env.WET_RUN }}
           before: |
             dolt version
+            echo
             dolt table import -u bronze_gamma_events    $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_events.parquet
+            echo
             dolt table import -u bronze_gamma_markets   $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_markets.parquet
+            echo
             dolt table import -u silver_market_outcomes $GITHUB_WORKSPACE/out/dolt_tables/silver_market_outcomes.parquet
