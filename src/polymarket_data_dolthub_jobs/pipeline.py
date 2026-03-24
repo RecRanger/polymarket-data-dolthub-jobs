@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-import fire  # pyright: ignore[reportMissingTypeStubs]
+import tyro
 from loguru import logger
 
 
@@ -31,4 +31,4 @@ def main(run_mode: Literal["full", "active_only"]) -> None:
 
 
 if __name__ == "__main__":
-    fire.Fire(main)  # pyright: ignore[reportUnknownMemberType]
+    tyro.cli(main)
