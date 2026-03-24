@@ -15,6 +15,7 @@ import tyro
 from loguru import logger
 from tqdm import tqdm
 
+from polymarket_data_dolthub_jobs.path_helpers import FINAL_DOLT_TABLES_FOLDER
 from polymarket_data_dolthub_jobs.request_helpers import url_get_request
 from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (
     OUTPUT_EVENTS_JSON_FILE,
@@ -28,6 +29,8 @@ OUTPUT_FOLDER_RAW_PAGES.mkdir(parents=True, exist_ok=True)
 
 OUTPUT_MARKETS_JSON_FILE_BY_ID = OUTPUT_FOLDER / "markets_full.json"
 OUTPUT_EVENTS_JSON_FILE_BY_ID = OUTPUT_FOLDER / "events_full.json"
+
+OUTPUT_ARCHIVED_EVENTS_SQL = OUTPUT_FOLDER / "set_archived_events.sql"
 
 GammaEndpointNameLiteral = Literal["events", "markets"]
 
@@ -60,6 +63,7 @@ def _fetch_rows_to_requery() -> pl.DataFrame:
         # TODO: Potentially change AND to OR to ensure we get the latest updates.
         (pl.col("active").cast(pl.Boolean) == pl.lit(True, pl.Boolean))
         & (pl.col("closed").cast(pl.Boolean) == pl.lit(False, pl.Boolean))
+        & (pl.col("archived").cast(pl.Boolean) == pl.lit(False, pl.Boolean))
     ).select(
         pl.col("event_id").cast(pl.UInt32),
     )
@@ -79,11 +83,12 @@ def _fetch_endpoint_by_id(
     assert all(isinstance(row, dict) for row in page_data)
 
     if len(page_data) != len(id_filter):
-        disappeared = set(id_filter) - {row["id"] for row in page_data}
-        logger.warning(
+        disappeared = set(id_filter) - {int(row["id"]) for row in page_data}
+        _ = (  # Previously logged this, but not too useful.
             f"Expected {len(id_filter)} rows, got {len(page_data)}. "
             f"Disappeared event_id values: {sorted(disappeared)}"
         )
+        assert len(disappeared) == (len(id_filter) - len(page_data))
 
     (
         OUTPUT_FOLDER_RAW_PAGES
@@ -145,8 +150,29 @@ def main(limit_to_fetch: int | None = None) -> None:
         if len(rows) % 1000 == 0:
             logger.debug(f"Fetched {len(rows):,} rows of events data.")
 
-    logger.info(f"Fetched a total of {len(rows):,} rows of {endpoint} data.")
+    logger.info(
+        f"Requested {df_to_fetch.height:,}, "
+        f"yielding {len(rows):,} rows of {endpoint} data."
+    )
 
+    # Figure out which events "disappeared".
+    disappeared_list = sorted(
+        set(df_to_fetch["event_id"].to_list()) - {int(row["id"]) for row in rows}
+    )
+    assert len(disappeared_list) == (df_to_fetch.height - len(rows))
+    logger.info(f"Setting {len(disappeared_list):,} disappeared events as archived!")
+    # Save the disappeared list.
+    with OUTPUT_ARCHIVED_EVENTS_SQL.open("w") as fp:
+        for disappeared_id in disappeared_list:
+            fp.write(
+                f"UPDATE bronze_gamma_events SET archived=1 "
+                f"WHERE event_id = {disappeared_id};\n"
+            )
+    (FINAL_DOLT_TABLES_FOLDER / "set_archived_events.sql").write_text(
+        OUTPUT_ARCHIVED_EVENTS_SQL.read_text()
+    )
+
+    # Save the main output of this step.
     output_file_path: Path = {
         "markets": OUTPUT_MARKETS_JSON_FILE_BY_ID,
         "events": OUTPUT_EVENTS_JSON_FILE_BY_ID,
