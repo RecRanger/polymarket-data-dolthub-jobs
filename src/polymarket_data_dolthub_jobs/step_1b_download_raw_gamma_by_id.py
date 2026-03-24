@@ -79,10 +79,21 @@ def _fetch_endpoint_by_id(
     assert all(isinstance(row, dict) for row in page_data)
 
     if len(page_data) != len(id_filter):
-        disappeared = set(id_filter) - {row["id"] for row in page_data}
-        logger.warning(
+        disappeared = set(id_filter) - {int(row["id"]) for row in page_data}
+        _ = (  # Previously logged this, but not too useful.
             f"Expected {len(id_filter)} rows, got {len(page_data)}. "
             f"Disappeared event_id values: {sorted(disappeared)}"
+        )
+        assert len(disappeared) == (len(id_filter) - len(page_data))
+
+        # Add "disappeared" rows.
+        page_data.extend(
+            {
+                "id": disappeared_id,
+                "archived": True,
+                "disappeared": True,
+            }
+            for disappeared_id in disappeared
         )
 
     (
