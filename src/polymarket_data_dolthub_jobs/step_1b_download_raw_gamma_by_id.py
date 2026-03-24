@@ -160,6 +160,7 @@ def main(limit_to_fetch: int | None = None) -> None:
         set(df_to_fetch["event_id"].to_list()) - {int(row["id"]) for row in rows}
     )
     assert len(disappeared_list) == (df_to_fetch.height - len(rows))
+    logger.info(f"Setting {len(disappeared_list):,} disappeared events as archived!")
     # Save the disappeared list.
     with OUTPUT_ARCHIVED_EVENTS_SQL.open("w") as fp:
         for disappeared_id in disappeared_list:
