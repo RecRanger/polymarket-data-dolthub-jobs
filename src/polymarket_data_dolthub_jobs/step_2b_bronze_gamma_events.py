@@ -148,7 +148,7 @@ def main() -> None:
         for col_name in ["image", "icon"]
     )
 
-    # Add sometime-missing unimportant columns.
+    # Add sometimes-missing unimportant columns.
     # Alternatively, we could drop these columns when they appear (and drop from the
     # schema).
     for col in ("liquidity_amm",):

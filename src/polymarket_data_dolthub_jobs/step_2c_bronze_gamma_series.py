@@ -161,6 +161,14 @@ def main() -> None:
         for col_name in ["image", "icon"]
     )
 
+    # Add sometimes-missing unimportant columns.
+    # Alternatively, we could drop these columns when they appear (and drop from the
+    # schema).
+    for col in ("description",):
+        if col not in df_series.columns:
+            logger.info(f'"{col}" column not in source. Adding it with null values.')
+            df_series = df_series.with_columns(pl.lit(None).alias(col))
+
     assert set(df_series.columns) == set(BronzeGammaSeriesSchema.columns()), (
         f"Extra columns: {set(df_series.columns) - set(BronzeGammaSeriesSchema.columns())}, "  # noqa: E501
         f"missing columns: {set(BronzeGammaSeriesSchema.columns()) - set(df_series.columns)}"  # noqa: E501
