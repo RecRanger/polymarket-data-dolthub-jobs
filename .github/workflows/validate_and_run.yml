@@ -96,3 +96,8 @@ jobs:
             dolt table import -u bronze_gamma_markets   $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_markets.parquet
             echo
             dolt table import -u silver_market_outcomes $GITHUB_WORKSPACE/out/dolt_tables/silver_market_outcomes.parquet
+            echo
+            dolt table import -u bronze_gamma_series    $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_series.parquet
+            echo
+            dolt table import -u bronze_gamma_event_series_link $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_event_series_link.parquet
+            echo
