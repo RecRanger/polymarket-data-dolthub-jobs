@@ -12,6 +12,9 @@ def main(run_mode: Literal["full", "active_only"]) -> None:
     from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (  # noqa: PLC0415
         main as step_1_download_raw_gamma_main,
     )
+    from polymarket_data_dolthub_jobs.step_1b_download_raw_gamma_by_id import (  # noqa: PLC0415
+        main as step_1b_download_raw_gamma_by_id_main,
+    )
     from polymarket_data_dolthub_jobs.step_2a_bronze_gamma_markets import (  # noqa: PLC0415
         main as step_2a_bronze_gamma_markets_main,
     )
@@ -23,6 +26,7 @@ def main(run_mode: Literal["full", "active_only"]) -> None:
     )
 
     step_1_download_raw_gamma_main(run_mode=run_mode)
+    step_1b_download_raw_gamma_by_id_main(limit_to_fetch=None)
     step_2a_bronze_gamma_markets_main()
     step_2b_bronze_gamma_events_main()
     step_3_silver_market_outcomes_main()
