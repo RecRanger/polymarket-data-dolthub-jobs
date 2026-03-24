@@ -37,9 +37,9 @@ class BronzeGammaSeriesSchema(dy.Schema):
     image = dy.String(nullable=True, max_length=500)
     icon = dy.String(nullable=True, max_length=500)
 
-    active = dy.Bool(nullable=True)
-    closed = dy.Bool(nullable=True)
-    archived = dy.Bool(nullable=True)
+    active = dy.Bool()
+    closed = dy.Bool()
+    archived = dy.Bool()
     is_new = dy.Bool(nullable=True)
     featured = dy.Bool(nullable=True)
     restricted = dy.Bool(nullable=True)
