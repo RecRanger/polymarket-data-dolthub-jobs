@@ -77,7 +77,7 @@ jobs:
       - name: Dolt Import
         # https://github.com/RecRanger/dolt-action (maintained)
         # https://github.com/dolthub/dolt-action (archived)
-        uses: RecRanger/dolt-action@main
+        uses: RecRanger/dolt-action@v1
         id: 'dolt_import'
         with:
           remote: recranger/polymarket-data
