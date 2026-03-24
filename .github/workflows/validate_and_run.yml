@@ -21,8 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install dolt
+        run: |
+          sudo bash -c 'curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | sudo bash'
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
 
       - name: Sync dependencies
         run: uv sync --all-groups
@@ -52,8 +56,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install dolt
+        run: |
+          sudo bash -c 'curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | sudo bash'
+
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
 
       - name: Sync dependencies
         run: uv sync
@@ -67,7 +75,8 @@ jobs:
           echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
 
       - name: Dolt Import
-        # https://github.com/dolthub/dolt-action
+        # https://github.com/RecRanger/dolt-action (maintained)
+        # https://github.com/dolthub/dolt-action (archived)
         uses: RecRanger/dolt-action@main
         id: 'dolt_import'
         with:
