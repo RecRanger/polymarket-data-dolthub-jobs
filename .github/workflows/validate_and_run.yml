@@ -13,7 +13,7 @@ env:
   # Automatically set DRY_RUN=true for pull requests, otherwise false
   DRY_RUN: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
   WET_RUN: ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
-  RUN_MODE: ${{ github.event_name == 'pull_request' && 'active_only' || 'full' }}
+  RUN_MODE: ${{ github.event_name == 'pull_request' && 'lightweight' || 'full' }}
 
 jobs:
   validate-job:
