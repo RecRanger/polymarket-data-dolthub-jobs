@@ -12,6 +12,9 @@ from polymarket_data_dolthub_jobs.path_helpers import write_final_dolt_table
 from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (
     OUTPUT_EVENTS_JSON_FILE,
 )
+from polymarket_data_dolthub_jobs.step_1b_download_raw_gamma_by_id import (
+    OUTPUT_EVENTS_JSON_FILE_BY_ID,
+)
 
 OUTPUT_FOLDER = Path("./out/") / Path(__file__).stem
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -164,8 +167,15 @@ def main() -> None:
     """Load the full markets list dataset from API."""
     logger.info(f"Starting {Path(__file__).name}")
 
-    df = pl.read_json(OUTPUT_EVENTS_JSON_FILE, infer_schema_length=None)
-    logger.info(f"Read JSON: {df.shape}")
+    df_1 = pl.read_json(OUTPUT_EVENTS_JSON_FILE, infer_schema_length=None)
+    df_2 = pl.read_json(
+        OUTPUT_EVENTS_JSON_FILE_BY_ID,
+        infer_schema_length=None,
+        schema=df_1.schema,
+    )
+    logger.info(f"Read JSON: df_1={df_1.shape}, df_2={df_2.shape}")
+    df = pl.concat([df_1, df_2], how="diagonal")
+    del df_1, df_2
 
     df = (
         df.select(
@@ -182,7 +192,7 @@ def main() -> None:
         {"id": "market_id", "slug": "market_slug", "new": "is_new"}
     )
 
-    # Due to paginated fetching, we may have duplicate rows.
+    # Due to paginated fetching (and the per-id refetching), we have duplicate rows.
     # Deduplicate based on the primary key.
     # Order not too important, but the later fetch is likely slightly more up-to-date.
     df = df.unique(["market_id"], maintain_order=True, keep="last")
@@ -217,8 +227,8 @@ def main() -> None:
     drop_columns = sorted(set(df.columns) - set(BronzeGammaMarketsSchema.columns()))
     if drop_columns:
         logger.warning(
-            f"Dropping {len(drop_columns)} extra columns that are not in the schema: "
-            f"{drop_columns}"
+            f"Dropping {len(drop_columns)} extra columns that are "
+            f"not in the Dataframely schema: {drop_columns}"
         )
         df = df.drop(drop_columns)
 
