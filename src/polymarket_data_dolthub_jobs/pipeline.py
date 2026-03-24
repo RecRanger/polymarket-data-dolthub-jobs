@@ -24,6 +24,9 @@ def main(run_mode: Literal["full", "lightweight"]) -> None:
     from polymarket_data_dolthub_jobs.step_2c_bronze_gamma_series import (  # noqa: PLC0415
         main as step_2c_bronze_gamma_series_main,
     )
+    from polymarket_data_dolthub_jobs.step_2d_bronze_gamma_tags import (  # noqa: PLC0415
+        main as step_2d_bronze_gamma_tags_main,
+    )
     from polymarket_data_dolthub_jobs.step_3_silver_market_outcomes import (  # noqa: PLC0415
         main as step_3_silver_market_outcomes_main,
     )
@@ -38,6 +41,7 @@ def main(run_mode: Literal["full", "lightweight"]) -> None:
     step_2a_bronze_gamma_markets_main()
     step_2b_bronze_gamma_events_main()
     step_2c_bronze_gamma_series_main()
+    step_2d_bronze_gamma_tags_main()
     step_3_silver_market_outcomes_main()
 
     logger.info("Data processing pipeline completed successfully.")
