@@ -101,5 +101,9 @@ jobs:
             echo
             dolt table import -u bronze_gamma_series    $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_series.parquet
             echo
+            dolt table import -u bronze_gamma_tags      $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_tags.parquet
+            echo
             dolt table import -u bronze_gamma_event_series_link $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_event_series_link.parquet
+            echo
+            dolt table import -u bronze_gamma_event_tag_link $GITHUB_WORKSPACE/out/dolt_tables/bronze_gamma_event_tag_link.parquet
             echo
