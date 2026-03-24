@@ -4,8 +4,8 @@ import itertools
 from pathlib import Path
 from typing import Any, Literal, assert_never
 
-import fire  # pyright: ignore[reportMissingTypeStubs]
 import orjson
+import tyro
 from loguru import logger
 
 from polymarket_data_dolthub_jobs.request_helpers import url_get_request
@@ -131,4 +131,4 @@ def main(run_mode: Literal["full", "active_only"]) -> None:
 
 
 if __name__ == "__main__":
-    fire.Fire(main)  # pyright: ignore[reportUnknownMemberType]
+    tyro.cli(main)

@@ -18,7 +18,7 @@ dependencies = [
     "py-clob-client>=0.34.6", # Polymarket client.
     "pydash>=8.0.6",
     "cloudpickle>=3.1.2", # Optional dependency of dataframely.
-    "fire>=0.7.1",
+    "tyro>=1.0.10",
 ]
 
 [build-system]
@@ -46,6 +46,7 @@ ignore = [
     "S101", # Assert
     "FBT003",
     "N805", # First argument of a method should be named 'self'. Off for classmethods in Dataframely.
+    "S",
 ]
 
 [tool.ruff.lint.per-file-ignores]
