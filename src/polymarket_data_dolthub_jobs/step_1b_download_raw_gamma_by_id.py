@@ -16,6 +16,9 @@ from loguru import logger
 from tqdm import tqdm
 
 from polymarket_data_dolthub_jobs.request_helpers import url_get_request
+from polymarket_data_dolthub_jobs.step_1_download_raw_gamma import (
+    OUTPUT_EVENTS_JSON_FILE,
+)
 
 OUTPUT_FOLDER = Path("./out/") / Path(__file__).stem
 OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -75,9 +78,12 @@ def _fetch_endpoint_by_id(
     assert isinstance(page_data, list)
     assert all(isinstance(row, dict) for row in page_data)
 
-    assert len(page_data) == len(id_filter), (
-        f"Expected {len(id_filter)} rows, got {len(page_data)}."
-    )
+    if len(page_data) != len(id_filter):
+        disappeared = set(id_filter) - {row["id"] for row in page_data}
+        logger.warning(
+            f"Expected {len(id_filter)} rows, got {len(page_data)}. "
+            f"Disappeared event_id values: {sorted(disappeared)}"
+        )
 
     (
         OUTPUT_FOLDER_RAW_PAGES
@@ -98,14 +104,33 @@ def main(limit_to_fetch: int | None = None) -> None:
     endpoint = "events"
 
     df_to_fetch = _fetch_rows_to_requery()
-    logger.info(f"Fetched {df_to_fetch.height:,} events/markets to fetch.")
+    logger.info(
+        f"Found {df_to_fetch.height:,} events which are marked active in the database."
+    )
+
+    if OUTPUT_EVENTS_JSON_FILE.exists():
+        logger.debug("Loading already-fetched events from Step 1a.")
+        df_already_fetched = pl.read_json(
+            OUTPUT_EVENTS_JSON_FILE,
+            schema={"id": pl.String},
+        )
+        df_already_fetched = df_already_fetched.cast({"id": pl.UInt32})
+        logger.info(f"From Step 1a, already done {df_already_fetched.height:,} events.")
+
+        df_to_fetch = df_to_fetch.filter(
+            df_to_fetch["event_id"].is_in(df_already_fetched["id"].implode()).not_()
+        )
+    else:
+        logger.warning("Step 1a not run. Will fetch all events, even if already done.")
 
     if (limit_to_fetch is not None) and (limit_to_fetch <= df_to_fetch.height):
         logger.info(
-            f"Limiting fetch to {limit_to_fetch:,} events/markets "
+            f"Limiting fetch to {limit_to_fetch:,} events "
             f"from {df_to_fetch.height:,} total."
         )
         df_to_fetch = df_to_fetch.sample(limit_to_fetch)
+
+    logger.info(f"Will fetch {df_to_fetch.height:,} events.")
 
     number_of_rows_per_fetch = 20  # Appears that 20 is the maximum.
 
